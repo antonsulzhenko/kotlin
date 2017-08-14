@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.descriptors.annotations.AnnotationWithTarget
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.AnnotationChecker
+import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.source.getPsi
 
 abstract class KtLightModifierList<out T : KtLightElement<KtModifierListOwner, PsiModifierListOwner>>(protected val owner: T)
@@ -116,7 +117,14 @@ private fun lightAnnotationsForEntries(lightModifierList: KtLightModifierList<*>
 }
 
 private fun getAnnotationDescriptors(declaration: KtDeclaration?, annotatedLightElement: KtLightElement<*, *>): List<AnnotationDescriptor> {
-    val descriptor = declaration?.let { LightClassGenerationSupport.getInstance(it.project).resolveToDescriptor(it) }
+    declaration ?: return emptyList()
+
+    val lightClassGenerationSupport = LightClassGenerationSupport.getInstance(declaration.project)
+    val descriptor = if (annotatedLightElement is KtLightParameter)
+        lightClassGenerationSupport.analyze(declaration)[BindingContext.VALUE_PARAMETER, declaration as KtParameter]
+    else
+        lightClassGenerationSupport.resolveToDescriptor(declaration)
+
     val annotatedDescriptor = when {
         descriptor is ClassDescriptor && annotatedLightElement is KtLightMethod && annotatedLightElement.isConstructor -> descriptor.unsubstitutedPrimaryConstructor
         descriptor !is PropertyDescriptor || annotatedLightElement !is KtLightMethod -> descriptor
